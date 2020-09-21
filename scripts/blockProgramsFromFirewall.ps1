@@ -55,3 +55,4 @@ if(Test-Path -LiteralPath $path -ErrorAction SilentlyContinue){ #Check path vali
 else{
     Write-Host "Invalid path. Try again.`n"
 }
+Read-Host "Script finished. Press ""ENTER"" to exit the script"
