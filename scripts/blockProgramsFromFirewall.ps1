@@ -1,11 +1,18 @@
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Warning "Insufficient permissions to run this script. Press enter to let the script self-elevate."
+    Read-Host
+    Start-Process powershell.exe "-File",('"{0}"' -f $MyInvocation.MyCommand.Path) -Verb RunAs
+    exit
+}
+
 $path = Read-Host Enter the program path or root folder
 
 if(Test-Path -LiteralPath $path -ErrorAction SilentlyContinue){ #Check path validity
-    if((Get-Item $path).PSIsContainer -eq $false -and $path.EndsWith(".exe")){ #If the given path is an executable
+    if((Get-Item -LiteralPath $path).PSIsContainer -eq $false -and $path.EndsWith(".exe")){ #If the given path is an executable
         $executables = @($path)
     }
-    elseif((Get-Item $path).PSIsContainer -eq $true){ #If the given path is a folder
-        $executables = Get-ChildItem $path -Recurse -Filter "*.exe" | Foreach-Object {$_.FullName}
+    elseif((Get-Item -LiteralPath $path).PSIsContainer -eq $true){ #If the given path is a folder
+        $executables = Get-ChildItem -LiteralPath $path -Recurse -Filter "*.exe" | Foreach-Object {$_.FullName}
     }
     else{ #If the given path is reachable, but invalid
         Write-Host "The specified path is not an "".exe"" or a folder. Try again.`n"
@@ -46,5 +53,5 @@ if(Test-Path -LiteralPath $path -ErrorAction SilentlyContinue){ #Check path vali
     }
 }
 else{
-    Write-Host "Invalid path. Try again."
+    Write-Host "Invalid path. Try again.`n"
 }
