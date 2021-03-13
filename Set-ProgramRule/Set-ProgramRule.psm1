@@ -1,32 +1,71 @@
 function Set-ProgramRule{
+    Param(
+        [Parameter(Mandatory=$true,Position=0,ParameterSetName="unblock")]
+        [Parameter(Mandatory=$true,Position=0,ParameterSetName="block")]
+        [ValidateNotNullOrEmpty()]
+        [string]$Path,
+
+        [Parameter(Mandatory=$true,ParameterSetName="block")]
+        [switch]$Block,
+
+        [Parameter(Mandatory=$true,ParameterSetName="unblock")]
+        [switch]$Unblock,
+
+        [Parameter(Mandatory=$true,ParameterSetName="purge")]
+        [switch]$Purge
+    )
     #Requires -RunAsAdministrator
     <#
     .Synopsis
         Block or unblock single or multiple executables recursively in a provided folder.
-    .PARAMETER -block
-        Sets the action to block in firewall.
-    .PARAMETER -unblock
-        Sets the action to unblock in firewall.
-    .PARAMETER -path
-        The path to file or executables in folder to block/unblock.
-    .Example
-        Set-ProgramRule -block "C:\Program Files (x86)\SomeProgram"
-        Adds blocking firewall rules for all executables that are recursively found under "C:\Program Files (x86)\SomeProgram".
-    .Example
-        Set-ProgramRule -block "C:\Program Files (x86)\SomeProgram\program.exe"
-        Blocks inbound and outbound internet connections for "C:\Program Files (x86)\SomeProgram\program.exe".
-    .Example
-        Set-ProgramRule -unblock "C:\Program Files (x86)\SomeProgram"
-        Removes all firewall rules found for all executables that are recursively found under "C:\Program Files (x86)\SomeProgram".
-    .Example
-        Set-ProgramRule -unblock "C:\Program Files (x86)\SomeProgram\program.exe"
-        Removes all firewall rules found regarding "C:\Program Files (x86)\SomeProgram\program.exe".
-        
-    #>
-    $argList = ($MyInvocation.Line -replace ('^.*' + [regex]::Escape($MyInvocation.InvocationName)) -split '[;|]')[0].Trim()
 
-    $type = $argList[0]
-    $path = $argList[1]
+    .PARAMETER -Block
+        Sets the action to block in firewall.
+
+    .PARAMETER -Unblock
+        Sets the action to unblock in firewall.
+
+    .PARAMETER -Path
+        The path to file or executables in folder to block/unblock. Passing a string without passing -Path will still default to -Path.
+
+    .PARAMETER -Purge
+        Purges orphaned/defunct rules - removes firewall rules whose paths are not valid anymore that were created by Set-ProgramRule.
+
+    .Example
+        Set-ProgramRule -Block "C:\Program Files (x86)\SomeProgram"
+        Adds blocking firewall rules for all executables that are recursively found under "C:\Program Files (x86)\SomeProgram".
+
+    .Example
+        Set-ProgramRule -Block "C:\Program Files (x86)\SomeProgram\program.exe"
+        Blocks inbound and outbound internet connections for "C:\Program Files (x86)\SomeProgram\program.exe".
+
+    .Example
+        Set-ProgramRule -Unblock "C:\Program Files (x86)\SomeProgram"
+        Removes all firewall rules found for all executables that are recursively found under "C:\Program Files (x86)\SomeProgram".
+
+    .Example
+        Set-ProgramRule -Unblock "C:\Program Files (x86)\SomeProgram\program.exe"
+        Removes all firewall rules found regarding "C:\Program Files (x86)\SomeProgram\program.exe".
+
+    .Example
+        Set-ProgramRule -Purge
+        Removes all orphaned firewall rules whose paths don't exist anymore that were created by Set-ProgramRule.
+    #>
+
+    function isPathValid {
+        [cmdletbinding()]
+        param (
+            [Parameter(Mandatory=$true)]
+            [string]$path
+        )
+        if(Test-Path -LiteralPath $path -ErrorAction SilentlyContinue){
+            return $true
+        }
+        else{
+            Write-Error -Message "The provided path is not valid." -Category InvalidData -CategoryReason "Invalid path" -CategoryActivity "The provided path is not valid." -RecommendedAction "Review the provided path."
+            return $false
+        }
+    }
 
     function Get-Executables {
         [cmdletbinding()]
@@ -34,7 +73,7 @@ function Set-ProgramRule{
             [Parameter(Mandatory=$true)]
             [string]$path
         )
-        if(Test-Path -LiteralPath $path -ErrorAction SilentlyContinue){
+        if(isPathValid $path){
             $executables = @()
             #If given path is a folder
             if((Get-Item -LiteralPath $path -ErrorAction SilentlyContinue).PSIsContainer -eq $true){
@@ -50,7 +89,7 @@ function Set-ProgramRule{
         return $executables,$error
     }
 
-    function blockPrograms{
+    function blockPrograms {
         [cmdletbinding()]
         param ([array]$executables)
         if($executables.Count -ge 1){
@@ -91,8 +130,6 @@ function Set-ProgramRule{
                     Write-Host "Outbound block rule already exists for $shortName. Rule name: ""$existingRuleName""`n"
                 }
             }
-            #Formatting
-            #Write-Host "" 
         }
     }
 
@@ -117,31 +154,39 @@ function Set-ProgramRule{
             }
         }
     }
-    
-    #Argument handling
-    if($args.Count -eq 2){
-        $type = $args[0]
-        $path = $args[1]
-        if($type -like "-block"){
-            #$block = $true
+
+    function purgeOrphans {
+        [cmdletbinding()]
+        param()
+        $orphanJob = Start-Job -ScriptBlock {@(Get-NetFirewallRule -Group "PS-SetProgramRule" | Get-NetFirewallApplicationFilter | Where-Object {!(Test-Path $_.Program)})} | Wait-Job
+        $orphanApplicationFilter = $orphanJob | Receive-Job -AutoRemoveJob -Wait
+        $orphanPaths = $orphanApplicationFilter.Program | Select-Object -Unique
+        $orphanedRules = $orphanApplicationFilter | Get-NetFirewallRule
+
+        if($orphanedRules.Count -ge 1){
+            $orphanedRules | Remove-NetFirewallRule
+            Write-Host "Removed $(($orphanedRules | Select-Object -Unique).Count) rules for the following path(s):`n$($orphanPaths -join "`n")"
+        }
+        else{
+            Write-Host "No orphans were found."
+        }
+    }
+
+    switch ($true){
+        $Block {
             $executables = (Get-Executables $path)[0]
             if($executables.Count -ge 1){
                 blockPrograms $executables
             }
         }
-        elseif($type -like "-unblock"){
-            #$block = $false
+        $Unblock {
             $executables = (Get-Executables $path)[0]
             if($executables.Count -ge 1){
                 unblockPrograms $executables
             }
         }
-        else{
-            Write-Error -Message "Invalid argument ""$type""." -Category InvalidArgument
-            return
+        $Purge {
+            purgeOrphans
         }
-    }
-    else{
-        Write-Error -Message "Invalid amount of arguments passed. You need to pass 2 arguments." -Category InvalidOperation
     }
 }

@@ -3,8 +3,8 @@
 A simple powershell script to recursively block or unblock executables in the firewall from a provided folder.
 
 ## Prerequisites
-* The script needs to be run from an elevated command.
-* PowerShell 5 or newer is required. 
+* Administrative privileges.
+* PowerShell 5 or newer. 
 
 ## Installation
 
@@ -21,12 +21,17 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/chippey5/powershell/ma
 ##### Block executables under `C:\Program Files (x86)\SomeProgram`
 
 ```
-Set-ProgramRule -block "C:\Program Files (x86)\SomeProgram"
+Set-ProgramRule -Block "C:\Program Files (x86)\SomeProgram"
 ```
 
 ##### Unblock executables under `C:\Program Files (x86)\SomeProgram`
 ```
-Set-ProgramRule -unblock "C:\Program Files (x86)\SomeProgram"
+Set-ProgramRule -Unblock "C:\Program Files (x86)\SomeProgram"
+```
+
+##### Purging orphaned rules created by Set-ProgramRule
+```
+Set-ProgramRule -Purge
 ```
 
 ##### Finding the rules blocked by the script
