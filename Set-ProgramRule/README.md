@@ -10,10 +10,15 @@ A simple powershell script to recursively block or unblock executables in the fi
 
 You can see how to install PowerShell modules on the official documentation [here](https://docs.microsoft.com/en-us/powershell/scripting/developer/module/installing-a-powershell-module?view=powershell-5.1).
 
-To easily install it, run the following command to have it added to your user's PowerShell module directory.
+To easily install it, run the following commands in an elevated terminal to have it added to your system's PowerShell module directory.
 
 ```
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/chippey5/powershell/master/Set-ProgramRule/Set-ProgramRule.psm1" -OutFile (New-Item -Path "$($env:USERPROFILE)\Documents\WindowsPowerShell\Modules\Set-ProgramRule\Set-ProgramRule.psm1" -Force)
+#Create target module directory
+New-Item -ItemType Directory "C:\Program Files\WindowsPowerShell\Modules\Set-ProgramRule" -Force
+
+#Download files
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/chippey5/powershell/master/Set-ProgramRule/Set-ProgramRule.psm1" -OutFile "C:\Program Files\WindowsPowerShell\Modules\Set-ProgramRule\Set-ProgramRule.psm1" 
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/chippey5/powershell/master/Set-ProgramRule/Set-ProgramRule.psd1" -OutFile "C:\Program Files\WindowsPowerShell\Modules\Set-ProgramRule\Set-ProgramRule.psd1" 
 ```
 
 ## Examples
